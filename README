@@ -1,0 +1,116 @@
+/**************************************************************
+ *
+ *                     README
+ *
+ *     Assignment: HW 7: profiling
+ *        Authors: Dan Glorioso & Brandon Dionisio (dglori02 & bdioni01)
+ *           Date: 04/22/24
+ *
+ **************************************************************/
+
+Who we collaborated with:
+       
+    We did not collaborate with anyone on this assignment. We spoke with a few
+    TAs in office hours when converting to dynamic arrays.
+
+What routine in the final um takes up the most time:
+
+    The while loop that executes the operations associated with each
+    instruction takes up drastically more time in our final um program than any
+    other routine. The execution loop does much of the heavy lifting
+    in our program's functionality as it fetches each instruction one-by-one
+    from our address space and then uses a series of if-else statements to 
+    perform the appropriate operation. Since this function is so comprehensive,
+    the vast majority of the program's time is spent looping through and 
+    executing instructions. Looking at the qcachegrind results of our final 
+    um, in comparision to other routines like reading in the instructions which
+    uses functions like getc, it is clear that executing the instructions and
+    its inner operations take up the most time. 
+
+    Within the outer routine which handles the execution of instructions,
+    the freeing of dynamically allocated arrays in our address space and zero
+    segment takes up the next most time in our program. This process is 
+    executed every time we unmap a segment and when either the program is  
+    halted or the end of instructions is reached, and then we have to free all
+    associated memory with current allocated arrays.
+
+    Another routine in our final um that takes up a significant portion of time
+    is our map/unmap operation that uses both Seq_addhi and Seq_remhi to add  
+    and remove unmapped segment IDs from the sequence storing the IDs. Looking
+    at the qcachegrind results of our final um, Seq_addhi and Seq_remhi are 
+    both within the top ten most frequently called functions with the other   
+    most highly-used functions called being memory functions like malloc, 
+    realloc, and free. Within our program, Seq_addhi and Seq_remhi are only 
+    called within our map and unmap functions, so we can be certain that these
+    operations are hot spots in the total time of our final um. Alternatively,
+    we tested eliminating sequences entirely by changing the unmapped sequence
+    to a dynamically allocated array of uint32_t, but this would require
+    allocing and reallocing an array to store the uint32_t, which was found to
+    take more time than using the Seq_addhi and Seq_remhi functions. We chose
+    to use Seq_addhi and Seq_remhi instead of Seq_addlo and Seq_remlo so that
+    when an element is removed from the array, the array can act like a stack
+    and the remaining elements do not need to be each shifted down, which would
+    have increased runtime.
+    
+
+Could the assembly code be improved:
+
+    Yes, there are opportunities to improve the assembly code in which we can
+    reduce unneccesary memory accesses relating to arguments passed through
+    functions. For example, when reading in the instructions from the input
+    file, we call getc() with the file as the function parameter which
+    involves accessing the memory associated with the file during every getc()
+    call. The assembly code could be improved if the contents of the getc()
+    function were written in-line such that we wouldn't need to load an
+    argument register with a value.
+
+    Another instance where we could reduce unnecessary memory accesses is when
+    the Seq_new function is called. When initializing our sequence of 
+    uint32_t for our unmapped sequence that contains IDs of unmapped segments,
+    we call the Seq_new function to allocate this sequence. Looking at the 
+    assembly code leading up to this function call, a number of registers must
+    be pushed onto the stack so that the arguments for the Seq_new call are
+    available later in the function when it is called. If instead of using the
+    Seq_new function, we were to rewrite this function call with a single line
+    that performed the same operation, these registers would not need to be 
+    loaded prior to the memory allocation. This would significantly cut down on
+    instructions that move and load registers and may improve the speed of the 
+    program. 
+    
+    This same principle could be applied to several machine instruction calls
+    that call on other functions throughout our program. These unnecessary
+    loads could be reduced before function calls to Seq_addhi(), Seq_remhi(),
+    malloc(), realloc(), printf(), free(), etc.
+
+    In the section of our program that reads in the instructions, chars are
+    fetched one at a time for 4 cycles to form each 32-bit instruction. In the
+    assembly code for this operation, this loop is conditionally jumped back to
+    repeat the loop until the 32-bit instruction is read in (jump if not 
+    equal). One way to improve this loop would be to fetch the instructions
+    in 32-bit chunks instead of 8-bit chunks so that this jump loop in
+    the assembly code could be greatly reduced. This would also likely increase
+    the speed of the program. 
+
+    At the end of the execute instruction loop, the program checks if the last
+    operation was load_program by using a bool that is tripped if load_program
+    was last called in order to only increment the program counter if the
+    operation was not load_program. We did this so that when a new zero segment
+    is loaded, the first instruction in the segment is not skipped, but by 
+    adding an if statement at the end of the execute instruction loop, the 
+    if statement must be checked after each operation. Looking at the assembly
+    code, this check adds a few lines of instructions that jumps if the
+    conditional is equal and moves values to different registers. Based on the
+    fact that this if statement is true for all operations except for load
+    program, this check adds unnecessary steps that only creates more
+    instructions for the program to execute each time an operation is called.
+    If we were to remove this check each time and find a different way to
+    make sure the program counter does not increment after loading a program,
+    the number of assembly instruction could be reduced.
+
+Time analyzing the assignment:
+
+    1 hour
+
+Time solving the problems: 
+
+    25 hours
